@@ -22,8 +22,9 @@ A REST API built with Go and Gin framework for managing and tracking watched mov
 .
 ├── cmd/
 │   └── api/              # Application entry point
-├── config/               # Configuration files
+├── configs/              # Configuration file templates
 ├── internal/
+│   ├── config/           # Environment variable loading
 │   ├── database/         # Database connection & repositories
 │   ├── handlers/         # HTTP request handlers
 │   ├── middleware/       # Custom middleware
@@ -74,6 +75,30 @@ Returns the health status of the service.
   "status": "ok",
   "message": "Service is running"
 }
+```
+
+## Testing
+
+Run all tests:
+```bash
+go test ./...
+```
+
+Run with verbose output to see each test case:
+```bash
+go test ./... -v
+```
+
+Run tests for a specific package:
+```bash
+go test ./internal/handlers/...
+go test ./internal/services/...
+go test ./internal/config/...
+```
+
+Run a single test by name:
+```bash
+go test ./internal/handlers/... -run TestTitlesSearch/missing_query_param
 ```
 
 ## Development
