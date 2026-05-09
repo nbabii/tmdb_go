@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -193,5 +192,3 @@ func scanOptionalWatchedMovie(rows pgx.Rows) (*models.WatchedMovie, error) {
 	return &m, nil
 }
 
-// sentinel kept for use in tests that need to distinguish "not found" from other errors.
-var ErrNotFound = errors.New("not found")

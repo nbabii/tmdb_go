@@ -3,73 +3,48 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/nazarbabii/tmdb_go/internal/models"
+	"github.com/nazarbabii/tmdb_go/internal/services"
 )
 
-type mockWatchEntryLookup struct {
-	byIDResult    *models.WatchedMovie
-	byIDErr       error
-	byTmdbResult  *models.WatchedMovie
-	byTmdbErr     error
-	calledByID    bool
-	calledByTmdb  bool
+type mockWatchEntryService struct {
+	result         *models.WatchEntryDetailResponse
+	err            error
+	capturedLookup services.Lookup
 }
 
-func (m *mockWatchEntryLookup) FindByID(_ context.Context, _ uuid.UUID) (*models.WatchedMovie, error) {
-	m.calledByID = true
-	return m.byIDResult, m.byIDErr
-}
-
-func (m *mockWatchEntryLookup) FindByTmdbID(_ context.Context, _ int) (*models.WatchedMovie, error) {
-	m.calledByTmdb = true
-	return m.byTmdbResult, m.byTmdbErr
-}
-
-type mockMovieDetailer struct {
-	result *models.TMDBMovieDetails
-	err    error
-}
-
-func (m *mockMovieDetailer) GetMovieDetails(_ context.Context, _ int) (*models.TMDBMovieDetails, error) {
+func (m *mockWatchEntryService) Get(_ context.Context, l services.Lookup) (*models.WatchEntryDetailResponse, error) {
+	m.capturedLookup = l
 	return m.result, m.err
 }
 
-func newWatchEntryRouter(repo *mockWatchEntryLookup, tmdb *mockMovieDetailer) *gin.Engine {
+func newWatchEntryRouter(svc *mockWatchEntryService) *gin.Engine {
 	r := gin.New()
-	h := NewWatchEntryHandler(repo, tmdb)
+	h := NewWatchEntryHandler(svc)
 	r.GET("/watch-entry", h.Get)
 	return r
 }
 
 var validUUID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
 
-func sampleMovie() *models.WatchedMovie {
+func sampleDetailResponse() *models.WatchEntryDetailResponse {
 	rating := 8
-	overview := "great film"
-	now := time.Now()
-	return &models.WatchedMovie{
-		ID:         validUUID,
-		TmdbID:     42,
-		Title:      "Test Movie",
-		MyRating:   &rating,
-		MyOverview: &overview,
-		CreatedAt:  now,
-	}
-}
-
-func sampleDetails() *models.TMDBMovieDetails {
 	overview := "tmdb overview"
 	runtime := 120
 	poster := "/poster.jpg"
 	avg := 7.5
-	return &models.TMDBMovieDetails{
+	return &models.WatchEntryDetailResponse{
+		ID:          validUUID,
+		TmdbID:      42,
+		Title:       "Test Movie",
+		MyRating:    &rating,
 		Overview:    &overview,
 		Runtime:     &runtime,
 		PosterPath:  &poster,
@@ -81,87 +56,71 @@ func TestWatchEntryGet(t *testing.T) {
 	cases := []struct {
 		name       string
 		query      string
-		repo       *mockWatchEntryLookup
-		tmdb       *mockMovieDetailer
+		svc        *mockWatchEntryService
 		wantStatus int
-		check      func(t *testing.T, repo *mockWatchEntryLookup)
+		check      func(t *testing.T, svc *mockWatchEntryService)
 	}{
 		{
-			name:       "neither param",
+			name:       "neither param → 400",
 			query:      "",
-			repo:       &mockWatchEntryLookup{},
-			tmdb:       &mockMovieDetailer{},
+			svc:        &mockWatchEntryService{},
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "invalid UUID",
+			name:       "invalid UUID → 400",
 			query:      "?id=not-a-uuid",
-			repo:       &mockWatchEntryLookup{},
-			tmdb:       &mockMovieDetailer{},
+			svc:        &mockWatchEntryService{},
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "not found by id",
+			name:       "not found → 404",
 			query:      "?id=" + validUUID.String(),
-			repo:       &mockWatchEntryLookup{byIDResult: nil},
-			tmdb:       &mockMovieDetailer{},
+			svc:        &mockWatchEntryService{err: services.ErrNotFound},
 			wantStatus: http.StatusNotFound,
 		},
 		{
-			name:       "not found by tmdb_id",
-			query:      "?tmdb_id=42",
-			repo:       &mockWatchEntryLookup{byTmdbResult: nil},
-			tmdb:       &mockMovieDetailer{},
-			wantStatus: http.StatusNotFound,
-		},
-		{
-			name:       "tmdb fetch fails",
+			name:       "TMDB error → 502",
 			query:      "?id=" + validUUID.String(),
-			repo:       &mockWatchEntryLookup{byIDResult: sampleMovie()},
-			tmdb:       &mockMovieDetailer{err: errors.New("tmdb down")},
+			svc:        &mockWatchEntryService{err: fmt.Errorf("%w: timeout", services.ErrTMDBUnavailable)},
 			wantStatus: http.StatusBadGateway,
 		},
 		{
-			name:       "success by id",
+			name:       "db error → 500",
 			query:      "?id=" + validUUID.String(),
-			repo:       &mockWatchEntryLookup{byIDResult: sampleMovie()},
-			tmdb:       &mockMovieDetailer{result: sampleDetails()},
+			svc:        &mockWatchEntryService{err: errors.New("db down")},
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name:       "success by id → 200",
+			query:      "?id=" + validUUID.String(),
+			svc:        &mockWatchEntryService{result: sampleDetailResponse()},
 			wantStatus: http.StatusOK,
 		},
 		{
-			name:       "success by tmdb_id",
+			name:       "success by tmdb_id → 200",
 			query:      "?tmdb_id=42",
-			repo:       &mockWatchEntryLookup{byTmdbResult: sampleMovie()},
-			tmdb:       &mockMovieDetailer{result: sampleDetails()},
+			svc:        &mockWatchEntryService{result: sampleDetailResponse()},
 			wantStatus: http.StatusOK,
 		},
 		{
-			name:  "id takes precedence over tmdb_id",
-			query: "?id=" + validUUID.String() + "&tmdb_id=42",
-			repo:  &mockWatchEntryLookup{byIDResult: sampleMovie()},
-			tmdb:  &mockMovieDetailer{result: sampleDetails()},
+			name:       "id takes precedence — Lookup.ID set, Lookup.TmdbID nil",
+			query:      "?id=" + validUUID.String() + "&tmdb_id=42",
+			svc:        &mockWatchEntryService{result: sampleDetailResponse()},
 			wantStatus: http.StatusOK,
-			check: func(t *testing.T, repo *mockWatchEntryLookup) {
-				if !repo.calledByID {
-					t.Error("expected FindByID to be called")
+			check: func(t *testing.T, svc *mockWatchEntryService) {
+				if svc.capturedLookup.ID == nil {
+					t.Error("expected Lookup.ID to be set")
 				}
-				if repo.calledByTmdb {
-					t.Error("expected FindByTmdbID NOT to be called")
+				if svc.capturedLookup.TmdbID != nil {
+					t.Error("expected Lookup.TmdbID to be nil")
 				}
 			},
-		},
-		{
-			name:       "repo error",
-			query:      "?id=" + validUUID.String(),
-			repo:       &mockWatchEntryLookup{byIDErr: errors.New("db down")},
-			tmdb:       &mockMovieDetailer{},
-			wantStatus: http.StatusInternalServerError,
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			r := newWatchEntryRouter(tc.repo, tc.tmdb)
+			r := newWatchEntryRouter(tc.svc)
 
 			req := httptest.NewRequest(http.MethodGet, "/watch-entry"+tc.query, nil)
 			w := httptest.NewRecorder()
@@ -171,7 +130,7 @@ func TestWatchEntryGet(t *testing.T) {
 				t.Errorf("status: got %d, want %d — body: %s", w.Code, tc.wantStatus, w.Body.String())
 			}
 			if tc.check != nil {
-				tc.check(t, tc.repo)
+				tc.check(t, tc.svc)
 			}
 		})
 	}

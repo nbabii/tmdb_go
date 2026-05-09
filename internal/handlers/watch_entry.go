@@ -2,29 +2,25 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/nazarbabii/tmdb_go/internal/models"
+	"github.com/nazarbabii/tmdb_go/internal/services"
 )
 
-type movieDetailer interface {
-	GetMovieDetails(ctx context.Context, movieID int) (*models.TMDBMovieDetails, error)
-}
-
-type watchEntryLookup interface {
-	FindByID(ctx context.Context, id uuid.UUID) (*models.WatchedMovie, error)
-	FindByTmdbID(ctx context.Context, tmdbID int) (*models.WatchedMovie, error)
+type watchEntryService interface {
+	Get(ctx context.Context, l services.Lookup) (*models.WatchEntryDetailResponse, error)
 }
 
 type WatchEntryHandler struct {
-	repo   watchEntryLookup
-	tmdb   movieDetailer
+	svc watchEntryService
 }
 
-func NewWatchEntryHandler(repo watchEntryLookup, tmdb movieDetailer) *WatchEntryHandler {
-	return &WatchEntryHandler{repo: repo, tmdb: tmdb}
+func NewWatchEntryHandler(svc watchEntryService) *WatchEntryHandler {
+	return &WatchEntryHandler{svc: svc}
 }
 
 type watchEntryRequest struct {
@@ -40,60 +36,33 @@ func (h *WatchEntryHandler) Get(c *gin.Context) {
 	}
 
 	if req.ID == nil && req.TmdbID == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"detail": "either id or tmdb_id is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"detail": "at least one of id or tmdb_id is required"})
 		return
 	}
 
-	var movie *models.WatchedMovie
-	var err error
-
+	var lookup services.Lookup
 	if req.ID != nil {
-		parsed, parseErr := uuid.Parse(*req.ID)
-		if parseErr != nil {
+		parsed, err := uuid.Parse(*req.ID)
+		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"detail": "invalid UUID format"})
 			return
 		}
-		movie, err = h.repo.FindByID(c.Request.Context(), parsed)
+		lookup = services.Lookup{ID: &parsed}
 	} else {
-		movie, err = h.repo.FindByTmdbID(c.Request.Context(), *req.TmdbID)
+		lookup = services.Lookup{TmdbID: req.TmdbID}
 	}
 
+	resp, err := h.svc.Get(c.Request.Context(), lookup)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"detail": "internal server error"})
+		switch {
+		case errors.Is(err, services.ErrNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"detail": "not found"})
+		case errors.Is(err, services.ErrTMDBUnavailable):
+			c.JSON(http.StatusBadGateway, gin.H{"detail": "failed to fetch movie details from TMDB"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"detail": "internal server error"})
+		}
 		return
-	}
-	if movie == nil {
-		c.JSON(http.StatusNotFound, gin.H{"detail": "not found"})
-		return
-	}
-
-	details, err := h.tmdb.GetMovieDetails(c.Request.Context(), movie.TmdbID)
-	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"detail": "failed to fetch movie details from TMDB"})
-		return
-	}
-
-	resp := models.WatchEntryDetailResponse{
-		ID:        movie.ID,
-		TmdbID:    movie.TmdbID,
-		Title:     movie.Title,
-		MyRating:  movie.MyRating,
-		MyOverview: movie.MyOverview,
-		CreatedAt: movie.CreatedAt,
-	}
-	if movie.ReleaseDate != nil {
-		d := models.Date{Time: *movie.ReleaseDate}
-		resp.ReleaseDate = &d
-	}
-	if movie.MyDateWatched != nil {
-		d := models.Date{Time: *movie.MyDateWatched}
-		resp.MyDateWatched = &d
-	}
-	if details != nil {
-		resp.Overview = details.Overview
-		resp.Runtime = details.Runtime
-		resp.PosterPath = details.PosterPath
-		resp.VoteAverage = details.VoteAverage
 	}
 
 	c.JSON(http.StatusOK, resp)

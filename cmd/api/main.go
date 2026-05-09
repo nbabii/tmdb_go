@@ -31,7 +31,7 @@ func main() {
 	defer pool.Close()
 
 	watchEntryRepo := database.NewWatchEntryRepository(pool)
-	watchEntryHandler := handlers.NewWatchEntryHandler(watchEntryRepo, tmdbService)
+	watchEntrySvc := services.NewWatchEntryService(watchEntryRepo, tmdbService)
 
 	router := gin.New()
 	router.Use(gin.Logger(), gin.Recovery())
@@ -41,7 +41,8 @@ func main() {
 	router.GET("/health", healthHandler.HealthCheck)
 
 	titlesHandler := handlers.NewTitlesHandler(tmdbService)
-	watchEntriesHandler := handlers.NewWatchEntriesHandler(watchEntryRepo)
+	watchEntriesHandler := handlers.NewWatchEntriesHandler(watchEntrySvc)
+	watchEntryHandler := handlers.NewWatchEntryHandler(watchEntrySvc)
 
 	v1 := router.Group("/api/v1")
 	{
