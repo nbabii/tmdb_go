@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"log"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/nazarbabii/tmdb_go/internal/config"
+	"github.com/nazarbabii/tmdb_go/internal/database"
 	"github.com/nazarbabii/tmdb_go/internal/handlers"
 	"github.com/nazarbabii/tmdb_go/internal/services"
 )
@@ -22,6 +24,15 @@ func main() {
 
 	tmdbService := services.NewTMDBService(cfg.TMDBBaseURL, cfg.TMDBAPIKey)
 
+	pool, err := database.NewPool(context.Background(), cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("database: %v", err)
+	}
+	defer pool.Close()
+
+	watchEntryRepo := database.NewWatchEntryRepository(pool)
+	watchEntryHandler := handlers.NewWatchEntryHandler(watchEntryRepo, tmdbService)
+
 	router := gin.New()
 	router.Use(gin.Logger(), gin.Recovery())
 	router.SetTrustedProxies(nil)
@@ -30,9 +41,14 @@ func main() {
 	router.GET("/health", healthHandler.HealthCheck)
 
 	titlesHandler := handlers.NewTitlesHandler(tmdbService)
+	watchEntriesHandler := handlers.NewWatchEntriesHandler(watchEntryRepo)
+
 	v1 := router.Group("/api/v1")
 	{
 		v1.GET("/titles/search", titlesHandler.Search)
+		v1.POST("/watch-entries", watchEntriesHandler.Create)
+		v1.GET("/watch-entries", watchEntriesHandler.List)
+		v1.GET("/watch-entry", watchEntryHandler.Get)
 	}
 
 	log.Printf("starting server on :%s", cfg.Port)
