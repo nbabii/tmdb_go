@@ -14,15 +14,14 @@ dist/
 go.work
 go.work.sum
 
-# Vendor
-vendor/
+# AI
+CLAUDE.md
 
 # Environment
 .env
 .env.local
 
 # IDE
-.idea/
 .vscode/
 *.swp
 *.swo

@@ -1,42 +1,78 @@
 package main
 
 import (
-	"log"
+	"context"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/nazarbabii/tmdb_go/internal/config"
+	"github.com/nazarbabii/tmdb_go/internal/database"
 	"github.com/nazarbabii/tmdb_go/internal/handlers"
+	"github.com/nazarbabii/tmdb_go/internal/repositories"
+	"github.com/nazarbabii/tmdb_go/internal/server"
 	"github.com/nazarbabii/tmdb_go/internal/services"
 )
 
 func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
 	if err := godotenv.Load(); err != nil {
-		log.Println("no .env file found, reading from environment")
+		logger.Info("no .env file found, reading from environment")
 	}
 
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("config: %v", err)
+		logger.Error("config", "error", err)
+		os.Exit(1)
 	}
 
-	tmdbService := services.NewTMDBService(cfg.TMDBBaseURL, cfg.TMDBAPIKey)
+	pool, err := database.NewPool(context.Background(), cfg.DatabaseURL)
+	if err != nil {
+		logger.Error("database", "error", err)
+		os.Exit(1)
+	}
+	defer pool.Close()
 
-	router := gin.New()
-	router.Use(gin.Logger(), gin.Recovery())
-	router.SetTrustedProxies(nil)
+	gin.SetMode(gin.ReleaseMode)
 
-	healthHandler := handlers.NewHealthHandler()
-	router.GET("/health", healthHandler.HealthCheck)
+	tmdbSvc := services.NewTMDBService(cfg.TMDBBaseURL, cfg.TMDBAPIKey)
+	watchEntrySvc := services.NewWatchEntryService(repositories.NewWatchEntryRepository(pool), tmdbSvc)
 
-	titlesHandler := handlers.NewTitlesHandler(tmdbService)
-	v1 := router.Group("/api/v1")
-	{
-		v1.GET("/titles/search", titlesHandler.Search)
+	router := server.NewRouter(logger, server.Handlers{
+		Health:       handlers.NewHealthHandler(),
+		Titles:       handlers.NewTitlesHandler(tmdbSvc),
+		WatchEntries: handlers.NewWatchEntriesHandler(watchEntrySvc),
+		WatchEntry:   handlers.NewWatchEntryHandler(watchEntrySvc),
+	})
+
+	srv := &http.Server{
+		Addr:    ":" + cfg.Port,
+		Handler: router,
 	}
 
-	log.Printf("starting server on :%s", cfg.Port)
-	if err := router.Run(":" + cfg.Port); err != nil {
-		log.Fatalf("server: %v", err)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	go func() {
+		logger.Info("starting server", "port", cfg.Port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("server failed to start", "error", err)
+			stop()
+		}
+	}()
+
+	<-ctx.Done()
+	logger.Info("shutting down server")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		logger.Error("shutdown error", "error", err)
 	}
 }

@@ -9,6 +9,7 @@ type Config struct {
 	TMDBAPIKey  string
 	TMDBBaseURL string
 	Port        string
+	DatabaseURL string
 }
 
 func Load() (*Config, error) {
@@ -22,6 +23,11 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("TMDB_BASE_URL environment variable is required")
 	}
 
+	databaseURL := os.Getenv("GO_DATABASE_URL")
+	if databaseURL == "" {
+		return nil, fmt.Errorf("GO_DATABASE_URL environment variable is required")
+	}
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8088"
@@ -31,5 +37,6 @@ func Load() (*Config, error) {
 		TMDBAPIKey:  apiKey,
 		TMDBBaseURL: baseURL,
 		Port:        port,
+		DatabaseURL: databaseURL,
 	}, nil
 }

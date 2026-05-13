@@ -76,6 +76,27 @@ type tmdbTVSearchResponse struct {
 	TotalResults int            `json:"total_results"`
 }
 
+type tmdbMovieDetailsResponse struct {
+	Overview    string   `json:"overview"`
+	Runtime     *int     `json:"runtime"`
+	PosterPath  *string  `json:"poster_path"`
+	VoteAverage *float64 `json:"vote_average"`
+}
+
+func (s *TMDBService) GetMovieDetails(ctx context.Context, movieID int) (*models.TMDBMovieDetails, error) {
+	raw := &tmdbMovieDetailsResponse{}
+	if err := s.get(ctx, fmt.Sprintf("/movie/%d", movieID), url.Values{}, raw); err != nil {
+		return nil, err
+	}
+	overview := raw.Overview
+	return &models.TMDBMovieDetails{
+		Overview:    &overview,
+		Runtime:     raw.Runtime,
+		PosterPath:  raw.PosterPath,
+		VoteAverage: raw.VoteAverage,
+	}, nil
+}
+
 func (s *TMDBService) SearchTitles(ctx context.Context, query string, titleType models.TitleType, page int, year *int) (*models.TitleSearchResponse, error) {
 	if titleType == models.TitleTypeMovie {
 		return s.searchMovies(ctx, query, page, year)
