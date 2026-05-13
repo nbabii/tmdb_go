@@ -30,7 +30,7 @@ type searchRequest struct {
 func (h *TitlesHandler) Search(c *gin.Context) {
 	var req searchRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request parameters"})
+		c.JSON(http.StatusBadRequest, gin.H{"detail": "invalid request parameters"})
 		return
 	}
 
@@ -41,7 +41,7 @@ func (h *TitlesHandler) Search(c *gin.Context) {
 
 	result, err := h.tmdb.SearchTitles(c.Request.Context(), req.Query, req.Type, page, req.Year)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch results from TMDB"})
+		c.JSON(http.StatusBadGateway, gin.H{"detail": "failed to fetch results from TMDB"})
 		return
 	}
 

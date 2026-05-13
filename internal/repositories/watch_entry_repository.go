@@ -1,4 +1,4 @@
-package database
+package repositories
 
 import (
 	"context"
@@ -161,7 +161,6 @@ func (r *pgxWatchEntryRepository) FindByTmdbID(ctx context.Context, tmdbID int) 
 	return scanOptionalWatchedMovie(rows)
 }
 
-// scanWatchedMovie scans one row from a pgx.Rows cursor into a WatchedMovie.
 func scanWatchedMovie(rows pgx.Rows) (models.WatchedMovie, error) {
 	var m models.WatchedMovie
 	err := rows.Scan(
@@ -177,7 +176,6 @@ func scanWatchedMovie(rows pgx.Rows) (models.WatchedMovie, error) {
 	return m, err
 }
 
-// scanOptionalWatchedMovie returns nil, nil when no row is found (maps to 404 in the handler).
 func scanOptionalWatchedMovie(rows pgx.Rows) (*models.WatchedMovie, error) {
 	if !rows.Next() {
 		if err := rows.Err(); err != nil {
@@ -191,4 +189,3 @@ func scanOptionalWatchedMovie(rows pgx.Rows) (*models.WatchedMovie, error) {
 	}
 	return &m, nil
 }
-
