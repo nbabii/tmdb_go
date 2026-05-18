@@ -3,6 +3,7 @@
 *.dylib
 bin/
 dist/
+tmp/
 
 # Test binary
 *.test
