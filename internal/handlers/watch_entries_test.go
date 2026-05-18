@@ -20,6 +20,8 @@ type mockWatchEntriesService struct {
 	createErr    error
 	listResult   models.WatchEntryListResponse
 	listErr      error
+	existsResult bool
+	existsErr    error
 }
 
 func (m *mockWatchEntriesService) BulkCreate(_ context.Context, _ []services.CreateParams) (services.CreateResult, error) {
@@ -30,11 +32,16 @@ func (m *mockWatchEntriesService) List(_ context.Context, _ services.ListParams)
 	return m.listResult, m.listErr
 }
 
+func (m *mockWatchEntriesService) ExistsByTmdbID(_ context.Context, _ int) (bool, error) {
+	return m.existsResult, m.existsErr
+}
+
 func newWatchEntriesRouter(svc *mockWatchEntriesService) *gin.Engine {
 	r := gin.New()
 	h := NewWatchEntriesHandler(svc)
 	r.POST("/watch-entries", h.Create)
 	r.GET("/watch-entries", h.List)
+	r.GET("/watch-entries/exists", h.Exists)
 	return r
 }
 
@@ -148,6 +155,109 @@ func TestWatchEntriesCreate(t *testing.T) {
 
 			req := httptest.NewRequest(http.MethodPost, "/watch-entries", bytes.NewBufferString(tc.body))
 			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+
+			if w.Code != tc.wantStatus {
+				t.Errorf("status: got %d, want %d — body: %s", w.Code, tc.wantStatus, w.Body.String())
+			}
+			if tc.check != nil {
+				tc.check(t, w.Body.Bytes())
+			}
+		})
+	}
+}
+
+func TestWatchEntriesExists(t *testing.T) {
+	cases := []struct {
+		name       string
+		query      string
+		svc        *mockWatchEntriesService
+		wantStatus int
+		check      func(t *testing.T, body []byte)
+	}{
+		{
+			name:       "missing tmdb_id → 422",
+			query:      "",
+			svc:        &mockWatchEntriesService{},
+			wantStatus: http.StatusUnprocessableEntity,
+		},
+		{
+			name:       "tmdb_id=0 below min=1 → 422",
+			query:      "?tmdb_id=0",
+			svc:        &mockWatchEntriesService{},
+			wantStatus: http.StatusUnprocessableEntity,
+		},
+		{
+			name:       "tmdb_id=abc non-numeric → 422",
+			query:      "?tmdb_id=abc",
+			svc:        &mockWatchEntriesService{},
+			wantStatus: http.StatusUnprocessableEntity,
+		},
+		{
+			name:       "tmdb_id=! symbol → 422",
+			query:      "?tmdb_id=!",
+			svc:        &mockWatchEntriesService{},
+			wantStatus: http.StatusUnprocessableEntity,
+		},
+		{
+			name:         "found → 200 exists:true",
+			query:        "?tmdb_id=1",
+			svc:          &mockWatchEntriesService{existsResult: true},
+			wantStatus:   http.StatusOK,
+			check: func(t *testing.T, body []byte) {
+				var resp struct {
+					Exists bool `json:"exists"`
+				}
+				if err := json.Unmarshal(body, &resp); err != nil {
+					t.Fatalf("parsing response: %v", err)
+				}
+				if !resp.Exists {
+					t.Error("exists: got false, want true")
+				}
+			},
+		},
+		{
+			name:         "not found → 200 exists:false",
+			query:        "?tmdb_id=1",
+			svc:          &mockWatchEntriesService{existsResult: false},
+			wantStatus:   http.StatusOK,
+			check: func(t *testing.T, body []byte) {
+				var resp struct {
+					Exists bool `json:"exists"`
+				}
+				if err := json.Unmarshal(body, &resp); err != nil {
+					t.Fatalf("parsing response: %v", err)
+				}
+				if resp.Exists {
+					t.Error("exists: got true, want false")
+				}
+			},
+		},
+		{
+			name:       "service error → 500",
+			query:      "?tmdb_id=1",
+			svc:        &mockWatchEntriesService{existsErr: errors.New("db down")},
+			wantStatus: http.StatusInternalServerError,
+			check: func(t *testing.T, body []byte) {
+				var resp struct {
+					Detail string `json:"detail"`
+				}
+				if err := json.Unmarshal(body, &resp); err != nil {
+					t.Fatalf("parsing response: %v", err)
+				}
+				if resp.Detail != "internal server error" {
+					t.Errorf("detail: got %q, want %q", resp.Detail, "internal server error")
+				}
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := newWatchEntriesRouter(tc.svc)
+
+			req := httptest.NewRequest(http.MethodGet, "/watch-entries/exists"+tc.query, nil)
 			w := httptest.NewRecorder()
 			r.ServeHTTP(w, req)
 

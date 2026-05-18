@@ -244,6 +244,55 @@ func TestList(t *testing.T) {
 	}
 }
 
+// --- ExistsByTmdbID ---
+
+func TestExistsByTmdbID(t *testing.T) {
+	movie := &models.WatchedMovie{ID: uuid.New(), TmdbID: 42, Title: "Test Movie"}
+
+	cases := []struct {
+		name       string
+		store      *mockStore
+		wantResult bool
+		wantErr    bool
+	}{
+		{
+			name:       "row found → true",
+			store:      &mockStore{byTmdbResult: movie},
+			wantResult: true,
+		},
+		{
+			name:       "row not found → false",
+			store:      &mockStore{byTmdbResult: nil},
+			wantResult: false,
+		},
+		{
+			name:    "store error propagated",
+			store:   &mockStore{byTmdbErr: errors.New("db down")},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := newSvc(tc.store, &mockDetailer{})
+			result, err := svc.ExistsByTmdbID(context.Background(), 42)
+
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if result != tc.wantResult {
+				t.Errorf("exists: got %v, want %v", result, tc.wantResult)
+			}
+		})
+	}
+}
+
 // --- Get ---
 
 func TestGet(t *testing.T) {
