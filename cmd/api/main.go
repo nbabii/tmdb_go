@@ -64,8 +64,8 @@ func main() {
 		v1.GET("/titles/search", titlesHandler.Search)
 		v1.POST("/watch-entries", watchEntriesHandler.Create)
 		v1.GET("/watch-entries", watchEntriesHandler.List)
-		v1.GET("/watch-entries/exists", watchEntriesHandler.Exists)
 		v1.GET("/watch-entry", watchEntryHandler.Get)
+		v1.GET("/watch-entry/:tmdb_id", watchEntryHandler.Exists)
 	}
 
 	srv := &http.Server{

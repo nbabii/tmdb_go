@@ -121,23 +121,3 @@ func (h *WatchEntriesHandler) List(c *gin.Context) {
 
 	c.JSON(http.StatusOK, resp)
 }
-
-type existsRequest struct {
-	TmdbID *int `form:"tmdb_id" binding:"required,min=1"`
-}
-
-func (h *WatchEntriesHandler) Exists(c *gin.Context) {
-	var req existsRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"detail": err.Error()})
-		return
-	}
-
-	exists, err := h.svc.ExistsByTmdbID(c.Request.Context(), *req.TmdbID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"detail": "internal server error"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"exists": exists})
-}

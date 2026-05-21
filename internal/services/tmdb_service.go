@@ -81,6 +81,12 @@ type tmdbMovieDetailsResponse struct {
 	Runtime     *int     `json:"runtime"`
 	PosterPath  *string  `json:"poster_path"`
 	VoteAverage *float64 `json:"vote_average"`
+	Genres      []tmdbGenre `json:"genres"`
+}
+
+type tmdbGenre struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
 }
 
 func (s *TMDBService) GetMovieDetails(ctx context.Context, movieID int) (*models.TMDBMovieDetails, error) {
@@ -88,12 +94,22 @@ func (s *TMDBService) GetMovieDetails(ctx context.Context, movieID int) (*models
 	if err := s.get(ctx, fmt.Sprintf("/movie/%d", movieID), url.Values{}, raw); err != nil {
 		return nil, err
 	}
+
+	fmt.Printf("!!!! Genres: %+v\n", raw.Genres)
+
 	overview := raw.Overview
+
+	var genres []models.Genre
+	for _, genre := range raw.Genres {
+		genres = append(genres, models.Genre{ID: genre.ID, Name: genre.Name})
+	}
+
 	return &models.TMDBMovieDetails{
 		Overview:    &overview,
 		Runtime:     raw.Runtime,
 		PosterPath:  raw.PosterPath,
 		VoteAverage: raw.VoteAverage,
+		Genres:      genres,
 	}, nil
 }
 

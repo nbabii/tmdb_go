@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -13,6 +14,7 @@ import (
 
 type watchEntryService interface {
 	Get(ctx context.Context, l services.Lookup) (*models.WatchEntryDetailResponse, error)
+	ExistsByTmdbID(ctx context.Context, tmdbID int) (bool, error)
 }
 
 type WatchEntryHandler struct {
@@ -66,4 +68,18 @@ func (h *WatchEntryHandler) Get(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, resp)
+}
+
+func (h *WatchEntryHandler) Exists(c *gin.Context) {
+	raw_id := c.Param("tmdb_id")
+	id, err := strconv.Atoi(raw_id)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"detail": "invalid TMDB ID format"})
+		return
+	}
+
+	exists, err := h.svc.ExistsByTmdbID(c.Request.Context(), id)
+
+	c.JSON(http.StatusOK, gin.H{"exists": exists})
 }
