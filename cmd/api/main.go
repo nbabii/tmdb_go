@@ -62,6 +62,8 @@ func main() {
 	v1 := router.Group("/api/v1")
 	{
 		v1.GET("/titles/search", titlesHandler.Search)
+		v1.GET("/titles/:tmdb_id/credits", titlesHandler.Credits)
+		// v1.POST("/titles/:tmdb_id/credits", titlesHandler.AddCredits) //is this post will be related to movie 
 		v1.POST("/watch-entries", watchEntriesHandler.Create)
 		v1.GET("/watch-entries", watchEntriesHandler.List)
 		v1.GET("/watch-entry", watchEntryHandler.Get)
