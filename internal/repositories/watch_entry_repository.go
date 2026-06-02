@@ -178,11 +178,8 @@ func scanWatchedMovie(rows pgx.Rows) (models.WatchedMovie, error) {
 
 func scanOptionalWatchedMovie(rows pgx.Rows) (*models.WatchedMovie, error) {
 	if !rows.Next() {
-		if err := rows.Err(); err != nil {
-			return nil, err
-		}
 		return nil, nil
-	}
+	}	
 	m, err := scanWatchedMovie(rows)
 	if err != nil {
 		return nil, err

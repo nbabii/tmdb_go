@@ -17,6 +17,7 @@ type WatchedMovie struct {
 	MyOverview    *string
 	MyDateWatched *time.Time
 	CreatedAt     time.Time
+	Genres        []Genre
 }
 
 // Date wraps time.Time and marshals to/from "YYYY-MM-DD" JSON strings.
@@ -49,6 +50,7 @@ type TMDBMovieDetails struct {
 	Runtime     *int     `json:"runtime"`
 	PosterPath  *string  `json:"poster_path"`
 	VoteAverage *float64 `json:"vote_average"`
+	Genres      []Genre  `json:"genres"`
 }
 
 // WatchEntryResponse is the JSON shape for a single created entry in the POST response.
@@ -109,6 +111,7 @@ type WatchEntryDetailResponse struct {
 	MyOverview    *string   `json:"my_overview"`
 	MyDateWatched *Date     `json:"my_date_watched"`
 	CreatedAt     time.Time `json:"created_at"`
+	Genres        []Genre   `json:"genres"`
 }
 
 // ToResponse converts a WatchedMovie DB model to a WatchEntryResponse JSON type.

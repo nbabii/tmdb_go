@@ -188,3 +188,11 @@ func (s *WatchEntryService) Get(ctx context.Context, l Lookup) (*models.WatchEnt
 
 	return resp, nil
 }
+
+func (s *WatchEntryService) ExistsByTmdbID(ctx context.Context, tmdbID int) (bool, error) {
+	movie, err := s.store.FindByTmdbID(ctx, tmdbID)
+	if err != nil {
+		return false, fmt.Errorf("finding watch entry: %w", err)
+	}
+	return movie != nil, nil
+}

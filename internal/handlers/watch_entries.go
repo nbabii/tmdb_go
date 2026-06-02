@@ -12,6 +12,7 @@ import (
 type watchEntriesService interface {
 	BulkCreate(ctx context.Context, items []services.CreateParams) (services.CreateResult, error)
 	List(ctx context.Context, p services.ListParams) (models.WatchEntryListResponse, error)
+	ExistsByTmdbID(ctx context.Context, tmdbID int) (bool, error)
 }
 
 type WatchEntriesHandler struct {

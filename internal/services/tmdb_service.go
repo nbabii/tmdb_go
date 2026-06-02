@@ -81,6 +81,26 @@ type tmdbMovieDetailsResponse struct {
 	Runtime     *int     `json:"runtime"`
 	PosterPath  *string  `json:"poster_path"`
 	VoteAverage *float64 `json:"vote_average"`
+	Genres      []tmdbGenre `json:"genres"`
+}
+
+type tmdbGenre struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+type TMDBMovieCreditsResponse struct {
+	ID   int `json:"id"`
+	Cast []TMDBMovieCast `json:"cast"`
+}
+
+type TMDBMovieCast struct {
+	ID                  int     `json:"id"`
+	Name                string  `json:"name"`
+	Character                string  `json:"character"`
+	KnownForDepartment  string  `json:"known_for_department"`
+	Order               int     `json:"order"`
+	ProfilePath         *string `json:"profile_path"`
 }
 
 func (s *TMDBService) GetMovieDetails(ctx context.Context, movieID int) (*models.TMDBMovieDetails, error) {
@@ -88,12 +108,20 @@ func (s *TMDBService) GetMovieDetails(ctx context.Context, movieID int) (*models
 	if err := s.get(ctx, fmt.Sprintf("/movie/%d", movieID), url.Values{}, raw); err != nil {
 		return nil, err
 	}
+
 	overview := raw.Overview
+
+	var genres []models.Genre
+	for _, genre := range raw.Genres {
+		genres = append(genres, models.Genre{ID: genre.ID, Name: genre.Name})
+	}
+
 	return &models.TMDBMovieDetails{
 		Overview:    &overview,
 		Runtime:     raw.Runtime,
 		PosterPath:  raw.PosterPath,
 		VoteAverage: raw.VoteAverage,
+		Genres:      genres,
 	}, nil
 }
 
@@ -102,6 +130,29 @@ func (s *TMDBService) SearchTitles(ctx context.Context, query string, titleType 
 		return s.searchMovies(ctx, query, page, year)
 	}
 	return s.searchTV(ctx, query, page, year)
+}
+
+func (s *TMDBService) GetCredits(ctx context.Context, movieID int) (*models.TMDBMovieCredits, error) {
+	raw := &TMDBMovieCreditsResponse{}
+
+	if err := s.get(ctx, fmt.Sprintf("/movie/%d/credits", movieID), url.Values{}, raw); err != nil {
+		return nil, err
+	}
+
+	var cast []models.TMDBMovieCast
+	for _, c := range raw.Cast {
+		cast = append(cast, models.TMDBMovieCast{
+			ID:   c.ID,
+			Name: c.Name,
+			Character: c.Character,
+		})
+	}
+
+	return &models.TMDBMovieCredits{
+		TmdbID: raw.ID,
+		Cast:   cast,
+	}, nil
+
 }
 
 func (s *TMDBService) searchMovies(ctx context.Context, query string, page int, year *int) (*models.TitleSearchResponse, error) {

@@ -14,8 +14,8 @@ import (
 	"github.com/nazarbabii/tmdb_go/internal/config"
 	"github.com/nazarbabii/tmdb_go/internal/database"
 	"github.com/nazarbabii/tmdb_go/internal/handlers"
+	"github.com/nazarbabii/tmdb_go/internal/middleware"
 	"github.com/nazarbabii/tmdb_go/internal/repositories"
-	"github.com/nazarbabii/tmdb_go/internal/server"
 	"github.com/nazarbabii/tmdb_go/internal/services"
 )
 
@@ -44,12 +44,31 @@ func main() {
 	tmdbSvc := services.NewTMDBService(cfg.TMDBBaseURL, cfg.TMDBAPIKey)
 	watchEntrySvc := services.NewWatchEntryService(repositories.NewWatchEntryRepository(pool), tmdbSvc)
 
-	router := server.NewRouter(logger, server.Handlers{
-		Health:       handlers.NewHealthHandler(),
-		Titles:       handlers.NewTitlesHandler(tmdbSvc),
-		WatchEntries: handlers.NewWatchEntriesHandler(watchEntrySvc),
-		WatchEntry:   handlers.NewWatchEntryHandler(watchEntrySvc),
-	})
+	router := gin.New()
+	router.SetTrustedProxies(nil)
+	router.Use(
+		middleware.RequestID(),
+		middleware.NewLogger(logger),
+		middleware.NewRecovery(logger),
+	)
+
+	healthHandler := handlers.NewHealthHandler()
+	titlesHandler := handlers.NewTitlesHandler(tmdbSvc)
+	watchEntriesHandler := handlers.NewWatchEntriesHandler(watchEntrySvc)
+	watchEntryHandler := handlers.NewWatchEntryHandler(watchEntrySvc)
+
+	router.GET("/health", healthHandler.HealthCheck)
+
+	v1 := router.Group("/api/v1")
+	{
+		v1.GET("/titles/search", titlesHandler.Search)
+		v1.GET("/titles/:tmdb_id/credits", titlesHandler.Credits)
+		// v1.POST("/titles/:tmdb_id/credits", titlesHandler.AddCredits) //is this post will be related to movie 
+		v1.POST("/watch-entries", watchEntriesHandler.Create)
+		v1.GET("/watch-entries", watchEntriesHandler.List)
+		v1.GET("/watch-entry", watchEntryHandler.Get)
+		v1.GET("/watch-entry/:tmdb_id", watchEntryHandler.Exists)
+	}
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,

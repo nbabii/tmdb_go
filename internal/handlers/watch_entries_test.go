@@ -20,6 +20,8 @@ type mockWatchEntriesService struct {
 	createErr    error
 	listResult   models.WatchEntryListResponse
 	listErr      error
+	existsResult bool
+	existsErr    error
 }
 
 func (m *mockWatchEntriesService) BulkCreate(_ context.Context, _ []services.CreateParams) (services.CreateResult, error) {
@@ -28,6 +30,10 @@ func (m *mockWatchEntriesService) BulkCreate(_ context.Context, _ []services.Cre
 
 func (m *mockWatchEntriesService) List(_ context.Context, _ services.ListParams) (models.WatchEntryListResponse, error) {
 	return m.listResult, m.listErr
+}
+
+func (m *mockWatchEntriesService) ExistsByTmdbID(_ context.Context, _ int) (bool, error) {
+	return m.existsResult, m.existsErr
 }
 
 func newWatchEntriesRouter(svc *mockWatchEntriesService) *gin.Engine {

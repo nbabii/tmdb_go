@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/nazarbabii/tmdb_go/internal/models"
@@ -10,6 +11,7 @@ import (
 
 type titleSearcher interface {
 	SearchTitles(ctx context.Context, query string, titleType models.TitleType, page int, year *int) (*models.TitleSearchResponse, error)
+	GetCredits(ctx context.Context, movieID int) (*models.TMDBMovieCredits, error)
 }
 
 type TitlesHandler struct {
@@ -46,4 +48,22 @@ func (h *TitlesHandler) Search(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, result)
+}
+
+func (h *TitlesHandler) Credits(c *gin.Context) {
+	tmdbID := c.Param("tmdb_id")
+	movieID, err := strconv.Atoi(tmdbID)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"detail": "invalid TMDB ID format"})
+		return
+	}
+
+	credits, err := h.tmdb.GetCredits(c.Request.Context(), movieID)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"detail": "failed to fetch credits from TMDB"})
+		return
+	}
+
+	c.JSON(http.StatusOK, credits)
 }
