@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -9,17 +8,11 @@ import (
 	"github.com/nazarbabii/tmdb_go/internal/services"
 )
 
-type watchEntriesService interface {
-	BulkCreate(ctx context.Context, items []services.CreateParams) (services.CreateResult, error)
-	List(ctx context.Context, p services.ListParams) (models.WatchEntryListResponse, error)
-	ExistsByTmdbID(ctx context.Context, tmdbID int) (bool, error)
-}
-
 type WatchEntriesHandler struct {
-	svc watchEntriesService
+	svc services.WatchEntryServiceUser
 }
 
-func NewWatchEntriesHandler(svc watchEntriesService) *WatchEntriesHandler {
+func NewWatchEntriesHandler(svc services.WatchEntryServiceUser) *WatchEntriesHandler {
 	return &WatchEntriesHandler{svc: svc}
 }
 
