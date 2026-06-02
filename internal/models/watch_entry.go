@@ -154,3 +154,7 @@ func (m WatchedMovie) ToListItem() WatchEntryListItem {
 	}
 	return item
 }
+
+type WatchEntryExistsResponse struct {
+	ID            uuid.UUID `json:"id"`
+}

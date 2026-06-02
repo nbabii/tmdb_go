@@ -13,6 +13,13 @@ import (
 var ErrNotFound = errors.New("watch entry not found")
 var ErrTMDBUnavailable = errors.New("TMDB unavailable")
 
+type WatchEntryServiceUser interface {
+	Get(ctx context.Context, l Lookup) (*models.WatchEntryDetailResponse, error)
+	ExistsByTmdbID(ctx context.Context, tmdbID int) (*models.WatchEntryExistsResponse, error)
+	BulkCreate(ctx context.Context, items []CreateParams) (CreateResult, error)
+	List(ctx context.Context, p ListParams) (models.WatchEntryListResponse, error)
+}
+
 type watchEntryStore interface {
 	FindExistingTmdbIDs(ctx context.Context, tmdbIDs []int) (map[int]struct{}, error)
 	BulkCreate(ctx context.Context, entries []models.WatchedMovie) ([]models.WatchedMovie, error)
@@ -189,10 +196,15 @@ func (s *WatchEntryService) Get(ctx context.Context, l Lookup) (*models.WatchEnt
 	return resp, nil
 }
 
-func (s *WatchEntryService) ExistsByTmdbID(ctx context.Context, tmdbID int) (bool, error) {
+func (s *WatchEntryService) ExistsByTmdbID(ctx context.Context, tmdbID int) (*models.WatchEntryExistsResponse, error) {
 	movie, err := s.store.FindByTmdbID(ctx, tmdbID)
 	if err != nil {
-		return false, fmt.Errorf("finding watch entry: %w", err)
+		return nil, fmt.Errorf("finding watch entry: %w", err)
 	}
-	return movie != nil, nil
+
+	if movie == nil {
+		return nil, ErrNotFound
+	}
+
+	return &models.WatchEntryExistsResponse{ID: movie.ID}, nil
 }

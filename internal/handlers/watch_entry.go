@@ -1,27 +1,20 @@
 package handlers
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/nazarbabii/tmdb_go/internal/models"
 	"github.com/nazarbabii/tmdb_go/internal/services"
 )
 
-type watchEntryService interface {
-	Get(ctx context.Context, l services.Lookup) (*models.WatchEntryDetailResponse, error)
-	ExistsByTmdbID(ctx context.Context, tmdbID int) (bool, error)
-}
-
 type WatchEntryHandler struct {
-	svc watchEntryService
+	svc services.WatchEntryServiceUser
 }
 
-func NewWatchEntryHandler(svc watchEntryService) *WatchEntryHandler {
+func NewWatchEntryHandler(svc services.WatchEntryServiceUser) *WatchEntryHandler {
 	return &WatchEntryHandler{svc: svc}
 }
 
@@ -71,8 +64,8 @@ func (h *WatchEntryHandler) Get(c *gin.Context) {
 }
 
 func (h *WatchEntryHandler) Exists(c *gin.Context) {
-	raw_id := c.Param("tmdb_id")
-	id, err := strconv.Atoi(raw_id)
+	rawId := c.Param("tmdb_id")
+	id, err := strconv.Atoi(rawId)
 
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"detail": "invalid TMDB ID format"})
@@ -80,6 +73,11 @@ func (h *WatchEntryHandler) Exists(c *gin.Context) {
 	}
 
 	exists, err := h.svc.ExistsByTmdbID(c.Request.Context(), id)
+	if errors.Is(err, services.ErrNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{"detail": "not found"})
+		return
+	}
 
-	c.JSON(http.StatusOK, gin.H{"exists": exists})
+
+	c.JSON(http.StatusOK, exists)
 }
