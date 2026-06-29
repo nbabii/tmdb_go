@@ -114,3 +114,11 @@ func (h *WatchEntriesHandler) List(c *gin.Context) {
 
 	c.JSON(http.StatusOK, resp)
 }
+
+func (h *WatchEntriesHandler) GetRecommendations(c *gin.Context) {
+	resp, err := h.svc.GetRecommendations(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"detail": "internal server error"})
+	}
+	c.JSON(http.StatusOK, resp)
+}

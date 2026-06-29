@@ -1,0 +1,133 @@
+basePath: /api/v1
+definitions:
+  models.Date:
+    properties:
+      time.Time:
+        type: string
+    type: object
+  models.Genre:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  models.WatchEntryDetailResponse:
+    properties:
+      created_at:
+        type: string
+      genres:
+        items:
+          $ref: '#/definitions/models.Genre'
+        type: array
+      id:
+        type: string
+      my_date_watched:
+        $ref: '#/definitions/models.Date'
+      my_overview:
+        type: string
+      my_rating:
+        type: integer
+      overview:
+        type: string
+      poster_path:
+        type: string
+      release_date:
+        $ref: '#/definitions/models.Date'
+      runtime:
+        type: integer
+      title:
+        type: string
+      tmdb_id:
+        type: integer
+      vote_average:
+        type: number
+    type: object
+  models.WatchEntryExistsResponse:
+    properties:
+      id:
+        type: string
+    type: object
+host: localhost:8088
+info:
+  contact: {}
+  description: Personal watch list backed by TMDB.
+  title: TMDB Go API
+  version: "1.0"
+paths:
+  /watch-entry:
+    get:
+      parameters:
+      - description: Watch entry UUID
+        in: query
+        name: id
+        type: string
+      - description: TMDB movie ID
+        in: query
+        name: tmdb_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.WatchEntryDetailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "502":
+          description: Bad Gateway
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get a watch entry
+      tags:
+      - watch-entry
+  /watch-entry/{tmdb_id}:
+    get:
+      parameters:
+      - description: TMDB movie ID
+        in: path
+        name: tmdb_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.WatchEntryExistsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Check if a watch entry exists
+      tags:
+      - watch-entry
+swagger: "2.0"

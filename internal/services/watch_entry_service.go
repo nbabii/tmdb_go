@@ -18,6 +18,7 @@ type WatchEntryServiceUser interface {
 	ExistsByTmdbID(ctx context.Context, tmdbID int) (*models.WatchEntryExistsResponse, error)
 	BulkCreate(ctx context.Context, items []CreateParams) (CreateResult, error)
 	List(ctx context.Context, p ListParams) (models.WatchEntryListResponse, error)
+	GetRecommendations(ctx context.Context) (models.RecommendationListResponse, error)
 }
 
 type watchEntryStore interface {
@@ -27,6 +28,7 @@ type watchEntryStore interface {
 	ListAll(ctx context.Context, limit, offset int, sortBy, sortOrder string) ([]models.WatchedMovie, error)
 	FindByID(ctx context.Context, id uuid.UUID) (*models.WatchedMovie, error)
 	FindByTmdbID(ctx context.Context, tmdbID int) (*models.WatchedMovie, error)
+	GetRecommendations(ctx context.Context, watchedBefore time.Time, limit, offset int) ([]models.WatchedMovie, error)
 }
 
 type tmdbDetailer interface {
@@ -207,4 +209,24 @@ func (s *WatchEntryService) ExistsByTmdbID(ctx context.Context, tmdbID int) (*mo
 	}
 
 	return &models.WatchEntryExistsResponse{ID: movie.ID}, nil
+}
+
+func (s *WatchEntryService) GetRecommendations(ctx context.Context) (models.RecommendationListResponse, error) {
+	now := time.Now()
+	oneYearAgo := now.AddDate(-1, 0, 0)
+
+	entries, err := s.store.GetRecommendations(ctx, oneYearAgo, 10, 0)
+	
+	if err != nil {
+		return models.RecommendationListResponse{}, fmt.Errorf("getting recommendations: %w", err)
+	}
+
+	items := make([]models.WatchEntryListItem, len(entries))
+	for i, m := range entries {
+		items[i] = m.ToListItem()
+	}
+
+	return models.RecommendationListResponse{
+		Items:  items,
+	}, nil
 }

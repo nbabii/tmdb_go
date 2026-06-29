@@ -23,6 +23,19 @@ type watchEntryRequest struct {
 	TmdbID *int    `form:"tmdb_id"`
 }
 
+// Get retrieves a single watch entry by its UUID or TMDB ID.
+//
+// @Summary      Get a watch entry
+// @Tags         watch-entry
+// @Produce      json
+// @Param        id       query     string  false  "Watch entry UUID"
+// @Param        tmdb_id  query     int     false  "TMDB movie ID"
+// @Success      200      {object}  models.WatchEntryDetailResponse
+// @Failure      400      {object}  map[string]string
+// @Failure      404      {object}  map[string]string
+// @Failure      502      {object}  map[string]string
+// @Failure      500      {object}  map[string]string
+// @Router       /watch-entry [get]
 func (h *WatchEntryHandler) Get(c *gin.Context) {
 	var req watchEntryRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
@@ -63,6 +76,16 @@ func (h *WatchEntryHandler) Get(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
+// Exists checks whether a movie is in the watch list by its TMDB ID.
+//
+// @Summary      Check if a watch entry exists
+// @Tags         watch-entry
+// @Produce      json
+// @Param        tmdb_id  path      int  true  "TMDB movie ID"
+// @Success      200      {object}  models.WatchEntryExistsResponse
+// @Failure      400      {object}  map[string]string
+// @Failure      404      {object}  map[string]string
+// @Router       /watch-entry/{tmdb_id} [get]
 func (h *WatchEntryHandler) Exists(c *gin.Context) {
 	rawId := c.Param("tmdb_id")
 	id, err := strconv.Atoi(rawId)
