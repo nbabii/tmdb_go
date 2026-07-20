@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -18,6 +19,7 @@ type WatchEntryRepository interface {
 	ListAll(ctx context.Context, limit, offset int, sortBy, sortOrder string) ([]models.WatchedMovie, error)
 	FindByID(ctx context.Context, id uuid.UUID) (*models.WatchedMovie, error)
 	FindByTmdbID(ctx context.Context, tmdbID int) (*models.WatchedMovie, error)
+	GetRecommendations(ctx context.Context, watchedBefore time.Time, limit, offset int) ([]models.WatchedMovie, error)
 }
 
 type pgxWatchEntryRepository struct {
@@ -185,4 +187,32 @@ func scanOptionalWatchedMovie(rows pgx.Rows) (*models.WatchedMovie, error) {
 		return nil, err
 	}
 	return &m, nil
+}
+
+func (r *pgxWatchEntryRepository) GetRecommendations(ctx context.Context, watchedBefore time.Time, limit, offset int) ([]models.WatchedMovie, error) {
+	const recommendationMinRating = 8
+
+	const q = `
+		SELECT id, tmdb_id, title, release_date, my_rating, my_overview, my_date_watched, created_at
+		FROM watched_movies
+		WHERE my_rating > $1
+		AND my_date_watched < $2
+		LIMIT $3 OFFSET $4`
+
+	rows, err := r.pool.Query(ctx, q, recommendationMinRating, watchedBefore, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("listing watch entries: %w", err)
+	}
+	defer rows.Close()
+
+	var entries []models.WatchedMovie
+	for rows.Next() {
+		m, err := scanWatchedMovie(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scanning watch entry: %w", err)
+		}
+		entries = append(entries, m)
+	}
+
+	return entries, rows.Err()
 }

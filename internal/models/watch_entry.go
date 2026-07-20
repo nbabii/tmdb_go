@@ -97,6 +97,10 @@ type WatchEntryListResponse struct {
 	Offset int                  `json:"offset"`
 }
 
+type RecommendationListResponse struct {
+	Items  []WatchEntryListItem `json:"items"`
+}
+
 // WatchEntryDetailResponse is the GET /watch-entry response — DB fields merged with TMDB data.
 type WatchEntryDetailResponse struct {
 	ID            uuid.UUID `json:"id"`

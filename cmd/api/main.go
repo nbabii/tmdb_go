@@ -17,8 +17,17 @@ import (
 	"github.com/nazarbabii/tmdb_go/internal/middleware"
 	"github.com/nazarbabii/tmdb_go/internal/repositories"
 	"github.com/nazarbabii/tmdb_go/internal/services"
+	swaggerfiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
+	_ "github.com/nazarbabii/tmdb_go/docs"
 )
 
+// @title           TMDB Go API
+// @version         1.0
+// @description     Personal watch list backed by TMDB.
+// @host            localhost:8088
+// @BasePath        /api/v1
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
@@ -58,6 +67,7 @@ func main() {
 	watchEntryHandler := handlers.NewWatchEntryHandler(watchEntrySvc)
 
 	router.GET("/health", healthHandler.HealthCheck)
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
 
 	v1 := router.Group("/api/v1")
 	{
@@ -66,6 +76,7 @@ func main() {
 		// v1.POST("/titles/:tmdb_id/credits", titlesHandler.AddCredits) //is this post will be related to movie 
 		v1.POST("/watch-entries", watchEntriesHandler.Create)
 		v1.GET("/watch-entries", watchEntriesHandler.List)
+		v1.GET("/watch-entries/recommendations", watchEntriesHandler.GetRecommendations)
 		v1.GET("/watch-entry", watchEntryHandler.Get)
 		v1.GET("/watch-entry/:tmdb_id", watchEntryHandler.Exists)
 	}
