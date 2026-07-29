@@ -19,6 +19,7 @@ type mockTMDB struct {
 	capturedType  models.TitleType
 	capturedPage  int
 	capturedYear  *int
+	creditsResult *models.TMDBMovieCredits
 }
 
 func (m *mockTMDB) SearchTitles(_ context.Context, query string, titleType models.TitleType, page int, year *int) (*models.TitleSearchResponse, error) {
@@ -27,6 +28,10 @@ func (m *mockTMDB) SearchTitles(_ context.Context, query string, titleType model
 	m.capturedPage = page
 	m.capturedYear = year
 	return m.result, m.err
+}
+
+func (m *mockTMDB) GetCredits(_ context.Context, movieID int) (*models.TMDBMovieCredits, error) {
+	return m.creditsResult, m.err
 }
 
 func newTestRouter(mock *mockTMDB) *gin.Engine {

@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tmdb-api
+  namespace: tmdb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tmdb-api
+  template:
+    metadata:
+      labels:
+        app: tmdb-api
+    spec:
+      containers:
+        - name: tmdb-api
+          image: tmdb-go:local
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8088
+          envFrom:
+            - secretRef:
+                name: tmdb-config
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8088
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8088
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
