@@ -1,0 +1,11 @@
+.git
+.env
+.env.local
+tmp/
+bin/
+dist/
+*.test
+*.out
+.vscode
+README.md
+CLAUDE.md
