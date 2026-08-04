@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tmdb-api
+  namespace: tmdb
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: tmdb-api
+  template:
+    metadata:
+      labels:
+        app: tmdb-api
+    spec:
+      serviceAccountName: tmdb-ksa
+      containers:
+        - name: tmdb-api
+          image: us-central1-docker.pkg.dev/<PROJECT_ID>/tmdb-repo/tmdb-go:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8088
+          envFrom:
+            - secretRef:
+                name: tmdb-config
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8088
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8088
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+        - name: cloud-sql-proxy
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:latest
+          args:
+            - "--port=5432"
+            - "<PROJECT_ID>:us-central1:tmdb-postgres"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
