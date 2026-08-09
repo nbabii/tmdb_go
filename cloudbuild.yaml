@@ -1,6 +1,11 @@
 options:
   logging: CLOUD_LOGGING_ONLY
 
+availableSecrets:
+  secretManager:
+    - versionName: projects/<PROJECT_ID>/secrets/tmdb-db-password/versions/latest
+      env: 'DB_PASSWORD'
+
 steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/tmdb-repo/tmdb-go:$SHORT_SHA', '.']
@@ -8,11 +13,24 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/tmdb-repo/tmdb-go:$SHORT_SHA']
 
-  - name: 'gcr.io/cloud-builders/gcloud'
-    entrypoint: 'bash'
+  - id: migrate
+    name: 'alpine:3.20'
+    entrypoint: sh
+    secretEnv: ['DB_PASSWORD']
     args:
-      - '-c'
-      - 'sed -i "s/<PROJECT_ID>/$PROJECT_ID/g" k8s/gke/deployment.yaml'
+      - -c
+      - |
+        set -e
+        apk add --no-cache curl bash
+        curl -sL -o /usr/local/bin/cloud-sql-proxy \
+          https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.0/cloud-sql-proxy.linux.amd64
+        chmod +x /usr/local/bin/cloud-sql-proxy
+        curl -sL https://github.com/golang-migrate/migrate/releases/download/v4.17.1/migrate.linux-amd64.tar.gz \
+          | tar xz -C /usr/local/bin migrate
+        cloud-sql-proxy --port=5432 <PROJECT_ID>:us-central1:tmdb-postgres &
+        sleep 5
+        migrate -path ./migrations \
+          -database "postgres://postgres:${DB_PASSWORD}@localhost:5432/tmdb" up
 
   - name: 'gcr.io/cloud-builders/gke-deploy'
     args:
