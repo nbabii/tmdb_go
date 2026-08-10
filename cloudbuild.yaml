@@ -27,23 +27,23 @@ steps:
         MIGRATE_VERSION=v4.17.1
 
         curl -fsSL -o /usr/local/bin/cloud-sql-proxy \
-          "https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/${CLOUD_SQL_PROXY_VERSION}/cloud-sql-proxy.linux.amd64"
+          "https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/$${CLOUD_SQL_PROXY_VERSION}/cloud-sql-proxy.linux.amd64"
         echo "c0af803c07157530c9159b6179e3288298950af5a39c8ca38ad28c8a2b52ae3d  /usr/local/bin/cloud-sql-proxy" | sha256sum -c -
         chmod +x /usr/local/bin/cloud-sql-proxy
 
         curl -fsSL -o /tmp/migrate.tar.gz \
-          "https://github.com/golang-migrate/migrate/releases/download/${MIGRATE_VERSION}/migrate.linux-amd64.tar.gz"
+          "https://github.com/golang-migrate/migrate/releases/download/$${MIGRATE_VERSION}/migrate.linux-amd64.tar.gz"
         echo "ddb3fe2c5f7a3a87b0fbcd451f56b5630208dc0a897ea3c73b2084431f166112  /tmp/migrate.tar.gz" | sha256sum -c -
         tar xzf /tmp/migrate.tar.gz -C /usr/local/bin migrate
 
         cloud-sql-proxy --port=5432 "$PROJECT_ID:us-central1:tmdb-postgres" &
         PROXY_PID=$!
-        trap 'kill $PROXY_PID 2>/dev/null || true; wait $PROXY_PID 2>/dev/null || true' EXIT
+        trap 'kill $$PROXY_PID 2>/dev/null || true; wait $$PROXY_PID 2>/dev/null || true' EXIT
 
         i=0
         until nc -z localhost 5432; do
           i=$((i + 1))
-          if [ "$i" -ge 30 ]; then
+          if [ "$$i" -ge 30 ]; then
             echo "cloud-sql-proxy did not become ready within 30s" >&2
             exit 1
           fi
