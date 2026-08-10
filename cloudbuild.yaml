@@ -20,17 +20,47 @@ steps:
     args:
       - -c
       - |
-        set -e
-        apk add --no-cache curl bash
-        curl -sL -o /usr/local/bin/cloud-sql-proxy \
-          https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.0/cloud-sql-proxy.linux.amd64
+        set -eu
+        apk add --no-cache curl netcat-openbsd
+
+        CLOUD_SQL_PROXY_VERSION=v2.14.0
+        MIGRATE_VERSION=v4.17.1
+
+        curl -fsSL -o /usr/local/bin/cloud-sql-proxy \
+          "https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/${CLOUD_SQL_PROXY_VERSION}/cloud-sql-proxy.linux.amd64"
+        echo "c0af803c07157530c9159b6179e3288298950af5a39c8ca38ad28c8a2b52ae3d  /usr/local/bin/cloud-sql-proxy" | sha256sum -c -
         chmod +x /usr/local/bin/cloud-sql-proxy
-        curl -sL https://github.com/golang-migrate/migrate/releases/download/v4.17.1/migrate.linux-amd64.tar.gz \
-          | tar xz -C /usr/local/bin migrate
-        cloud-sql-proxy --port=5432 $PROJECT_ID:us-central1:tmdb-postgres &
-        sleep 5
+
+        curl -fsSL -o /tmp/migrate.tar.gz \
+          "https://github.com/golang-migrate/migrate/releases/download/${MIGRATE_VERSION}/migrate.linux-amd64.tar.gz"
+        echo "ddb3fe2c5f7a3a87b0fbcd451f56b5630208dc0a897ea3c73b2084431f166112  /tmp/migrate.tar.gz" | sha256sum -c -
+        tar xzf /tmp/migrate.tar.gz -C /usr/local/bin migrate
+
+        cloud-sql-proxy --port=5432 "$PROJECT_ID:us-central1:tmdb-postgres" &
+        PROXY_PID=$!
+        trap 'kill $PROXY_PID 2>/dev/null || true; wait $PROXY_PID 2>/dev/null || true' EXIT
+
+        i=0
+        until nc -z localhost 5432; do
+          i=$((i + 1))
+          if [ "$i" -ge 30 ]; then
+            echo "cloud-sql-proxy did not become ready within 30s" >&2
+            exit 1
+          fi
+          sleep 1
+        done
+
         migrate -path ./migrations \
           -database "postgres://postgres:$${DB_PASSWORD}@localhost:5432/tmdb?sslmode=disable" up
+
+  - id: render-manifests
+    name: 'registry.k8s.io/kustomize/kustomize:v5.4.3'
+    dir: 'k8s/gke'
+    args:
+      - edit
+      - set
+      - image
+      - 'tmdb-go=us-central1-docker.pkg.dev/$PROJECT_ID/tmdb-repo/tmdb-go:$SHORT_SHA'
 
   - id: deploy
     name: 'gcr.io/cloud-builders/kubectl'
@@ -41,16 +71,10 @@ steps:
     args:
       - -c
       - |
-        set -e
+        set -eu
         gcloud container clusters get-credentials $$CLOUDSDK_CONTAINER_CLUSTER --region=$$CLOUDSDK_COMPUTE_REGION
-        curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
-        WORKDIR=$(mktemp -d)
-        cp -r k8s "$WORKDIR/k8s"
-        ( cd "$WORKDIR/k8s/gke" && /workspace/kustomize edit set image \
-            tmdb-go=us-central1-docker.pkg.dev/$PROJECT_ID/tmdb-repo/tmdb-go:$SHORT_SHA )
-        kubectl apply -k "$WORKDIR/k8s/gke"
+        kubectl apply -k k8s/gke
         kubectl rollout status deployment/tmdb-api -n tmdb --timeout=120s
-        rm -rf "$WORKDIR"
 
 images:
   - 'us-central1-docker.pkg.dev/$PROJECT_ID/tmdb-repo/tmdb-go:$SHORT_SHA'
