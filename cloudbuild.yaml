@@ -30,7 +30,7 @@ steps:
         cloud-sql-proxy --port=5432 $PROJECT_ID:us-central1:tmdb-postgres &
         sleep 5
         migrate -path ./migrations \
-          -database "postgres://postgres:$${DB_PASSWORD}@localhost:5432/tmdb" up
+          -database "postgres://postgres:$${DB_PASSWORD}@localhost:5432/tmdb?sslmode=disable" up
 
   - name: 'gcr.io/cloud-builders/gke-deploy'
     args:
