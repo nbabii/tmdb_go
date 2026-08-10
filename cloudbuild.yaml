@@ -32,14 +32,25 @@ steps:
         migrate -path ./migrations \
           -database "postgres://postgres:$${DB_PASSWORD}@localhost:5432/tmdb?sslmode=disable" up
 
-  - name: 'gcr.io/cloud-builders/gke-deploy'
+  - id: deploy
+    name: 'gcr.io/cloud-builders/kubectl'
+    entrypoint: sh
+    env:
+      - 'CLOUDSDK_COMPUTE_REGION=us-central1'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=tmdb-cluster'
     args:
-      - run
-      - '--filename=k8s/gke/'
-      - '--image=us-central1-docker.pkg.dev/$PROJECT_ID/tmdb-repo/tmdb-go:$SHORT_SHA'
-      - '--location=us-central1'
-      - '--cluster=tmdb-cluster'
-      - '--namespace=tmdb'
+      - -c
+      - |
+        set -e
+        gcloud container clusters get-credentials $$CLOUDSDK_CONTAINER_CLUSTER --region=$$CLOUDSDK_COMPUTE_REGION
+        curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+        WORKDIR=$(mktemp -d)
+        cp -r k8s "$WORKDIR/k8s"
+        ( cd "$WORKDIR/k8s/gke" && /workspace/kustomize edit set image \
+            tmdb-go=us-central1-docker.pkg.dev/$PROJECT_ID/tmdb-repo/tmdb-go:$SHORT_SHA )
+        kubectl apply -k "$WORKDIR/k8s/gke"
+        kubectl rollout status deployment/tmdb-api -n tmdb --timeout=120s
+        rm -rf "$WORKDIR"
 
 images:
   - 'us-central1-docker.pkg.dev/$PROJECT_ID/tmdb-repo/tmdb-go:$SHORT_SHA'
