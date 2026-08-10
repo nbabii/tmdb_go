@@ -16,7 +16,7 @@ spec:
       serviceAccountName: tmdb-ksa
       containers:
         - name: tmdb-api
-          image: us-central1-docker.pkg.dev/$PROJECT_ID/tmdb-repo/tmdb-go:latest
+          image: us-central1-docker.pkg.dev/placeholder/tmdb-repo/tmdb-go:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8088
