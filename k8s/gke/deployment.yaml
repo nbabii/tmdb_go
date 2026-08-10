@@ -16,7 +16,7 @@ spec:
       serviceAccountName: tmdb-ksa
       containers:
         - name: tmdb-api
-          image: us-central1-docker.pkg.dev/<PROJECT_ID>/tmdb-repo/tmdb-go:latest
+          image: us-central1-docker.pkg.dev/$PROJECT_ID/tmdb-repo/tmdb-go:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8088
@@ -46,7 +46,7 @@ spec:
           image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:latest
           args:
             - "--port=5432"
-            - "<PROJECT_ID>:us-central1:tmdb-postgres"
+            - "$PROJECT_ID:us-central1:tmdb-postgres"
           resources:
             requests:
               cpu: 50m
