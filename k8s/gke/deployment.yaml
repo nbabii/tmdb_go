@@ -49,7 +49,7 @@ spec:
                 name: tmdb-config
           command: ["sh", "-c"]
           args:
-            - exec cloud-sql-proxy --port=5432 "$INSTANCE_CONNECTION_NAME"
+            - exec /cloud-sql-proxy --port=5432 "$INSTANCE_CONNECTION_NAME"
           resources:
             requests:
               cpu: 50m
