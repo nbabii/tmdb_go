@@ -27,7 +27,7 @@ steps:
         chmod +x /usr/local/bin/cloud-sql-proxy
         curl -sL https://github.com/golang-migrate/migrate/releases/download/v4.17.1/migrate.linux-amd64.tar.gz \
           | tar xz -C /usr/local/bin migrate
-        cloud-sql-proxy --port=5432 <PROJECT_ID>:us-central1:tmdb-postgres &
+        cloud-sql-proxy --port=5432 $PROJECT_ID:us-central1:tmdb-postgres &
         sleep 5
         migrate -path ./migrations \
           -database "postgres://postgres:$${DB_PASSWORD}@localhost:5432/tmdb" up
