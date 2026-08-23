@@ -21,7 +21,8 @@ if gcloud container clusters describe "$CLUSTER" --region="$REGION" >/dev/null 2
 else
   gcloud container clusters create-auto "$CLUSTER" \
     --region="$REGION" \
-    --service-account="$NODE_SA"
+    --service-account="$NODE_SA" \
+    --enable-secret-manager
 fi
 
 gcloud container clusters get-credentials "$CLUSTER" --region="$REGION"
@@ -33,14 +34,19 @@ kubectl annotate serviceaccount "$KSA" -n "$NAMESPACE" \
   iam.gke.io/gcp-service-account="$CLOUDSQL_SA" \
   --overwrite
 
-echo "==> tmdb-config Secret..."
-kubectl create secret generic tmdb-config -n "$NAMESPACE" \
-  --from-literal=TMDB_API_KEY="$TMDB_API_KEY" \
-  --from-literal=TMDB_BASE_URL="$TMDB_BASE_URL" \
-  --from-literal=GO_DATABASE_URL="postgres://postgres:${DB_PASSWORD}@localhost:5432/tmdb?sslmode=disable" \
-  --from-literal=PORT="${PORT:-8088}" \
-  --from-literal=INSTANCE_CONNECTION_NAME="${PROJECT_ID}:${REGION}:tmdb-postgres" \
-  --dry-run=client -o yaml | kubectl apply -f -
+echo "==> Syncing Secret Manager values (tmdb-config is now created/synced by the Secret Manager CSI driver)..."
+put_secret() {
+  local name="$1" value="$2"
+  if gcloud secrets describe "$name" >/dev/null 2>&1; then
+    printf '%s' "$value" | gcloud secrets versions add "$name" --data-file=-
+  else
+    printf '%s' "$value" | gcloud secrets create "$name" --data-file=-
+  fi
+}
+
+put_secret tmdb-api-key "$TMDB_API_KEY"
+put_secret tmdb-go-database-url "postgres://postgres:${DB_PASSWORD}@localhost:5432/tmdb?sslmode=disable"
+put_secret tmdb-instance-connection-name "${PROJECT_ID}:${REGION}:tmdb-postgres"
 
 echo "==> Triggering an initial deploy..."
 gcloud builds triggers run deploy-on-main --branch=main --region="$REGION"

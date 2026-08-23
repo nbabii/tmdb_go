@@ -73,6 +73,7 @@ steps:
       - |
         set -eu
         gcloud container clusters get-credentials $$CLOUDSDK_CONTAINER_CLUSTER --region=$$CLOUDSDK_COMPUTE_REGION
+        sed -i "s/PROJECT_ID/$PROJECT_ID/g" k8s/gke/secretproviderclass.yaml
         kubectl apply -k k8s/gke
         kubectl rollout status deployment/tmdb-api -n tmdb --timeout=120s
 
