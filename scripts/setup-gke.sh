@@ -48,7 +48,4 @@ put_secret tmdb-api-key "$TMDB_API_KEY"
 put_secret tmdb-go-database-url "postgres://postgres:${DB_PASSWORD}@localhost:5432/tmdb?sslmode=disable"
 put_secret tmdb-instance-connection-name "${PROJECT_ID}:${REGION}:tmdb-postgres"
 
-echo "==> Triggering an initial deploy..."
-gcloud builds triggers run deploy-on-main --branch=main --region="$REGION"
-
-echo "Done. Watch it with: gcloud builds list --ongoing"
+echo "Done."
