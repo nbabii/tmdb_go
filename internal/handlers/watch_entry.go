@@ -101,6 +101,36 @@ func (h *WatchEntryHandler) Exists(c *gin.Context) {
 		return
 	}
 
-
 	c.JSON(http.StatusOK, exists)
+}
+
+// Actors returns the actors on file for a watched movie, looked up by TMDB ID.
+//
+// @Summary      List actors for a watch entry
+// @Tags         watch-entry
+// @Produce      json
+// @Param        tmdb_id  path      int  true  "TMDB movie ID"
+// @Success      200      {object}  models.ActorListResponse
+// @Failure      400      {object}  map[string]string
+// @Failure      404      {object}  map[string]string
+// @Router       /watch-entry/{tmdb_id}/actors [get]
+func (h *WatchEntryHandler) Actors(c *gin.Context) {
+	rawId := c.Param("tmdb_id")
+	id, err := strconv.Atoi(rawId)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"detail": "invalid TMDB ID format"})
+		return
+	}
+
+	actors, err := h.svc.GetActors(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, services.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"detail": "not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"detail": "internal server error"})
+		return
+	}
+
+	c.JSON(http.StatusOK, actors)
 }

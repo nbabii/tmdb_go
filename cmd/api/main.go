@@ -51,7 +51,7 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 
 	tmdbSvc := services.NewTMDBService(cfg.TMDBBaseURL, cfg.TMDBAPIKey)
-	watchEntrySvc := services.NewWatchEntryService(repositories.NewWatchEntryRepository(pool), tmdbSvc)
+	watchEntrySvc := services.NewWatchEntryService(repositories.NewWatchEntryRepository(pool), tmdbSvc, repositories.NewActorRepository(pool))
 
 	router := gin.New()
 	router.SetTrustedProxies(nil)
@@ -73,12 +73,13 @@ func main() {
 	{
 		v1.GET("/titles/search", titlesHandler.Search)
 		v1.GET("/titles/:tmdb_id/credits", titlesHandler.Credits)
-		// v1.POST("/titles/:tmdb_id/credits", titlesHandler.AddCredits) //is this post will be related to movie 
+		// v1.POST("/titles/:tmdb_id/credits", titlesHandler.AddCredits) //is this post will be related to movie
 		v1.POST("/watch-entries", watchEntriesHandler.Create)
 		v1.GET("/watch-entries", watchEntriesHandler.List)
 		v1.GET("/watch-entries/recommendations", watchEntriesHandler.GetRecommendations)
 		v1.GET("/watch-entry", watchEntryHandler.Get)
 		v1.GET("/watch-entry/:tmdb_id", watchEntryHandler.Exists)
+		v1.GET("/watch-entry/:tmdb_id/actors", watchEntryHandler.Actors)
 	}
 
 	srv := &http.Server{

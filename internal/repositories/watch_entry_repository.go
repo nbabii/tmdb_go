@@ -76,7 +76,7 @@ func (r *pgxWatchEntryRepository) BulkCreate(ctx context.Context, entries []mode
 			base+1, base+2, base+3, base+4, base+5, base+6, base+7)
 		args = append(args, e.ID, e.TmdbID, e.Title, e.ReleaseDate, e.MyRating, e.MyOverview, e.MyDateWatched)
 	}
-	sb.WriteString(` RETURNING id, tmdb_id, title, release_date, my_rating, my_overview, my_date_watched, created_at`)
+	sb.WriteString(` RETURNING id, tmdb_id, title, release_date, my_rating, my_overview, my_date_watched, created_at, actor_ids`)
 
 	rows, err := r.pool.Query(ctx, sb.String(), args...)
 	if err != nil {
@@ -119,7 +119,7 @@ func (r *pgxWatchEntryRepository) ListAll(ctx context.Context, limit, offset int
 	ord := allowedOrders[sortOrder]
 
 	q := fmt.Sprintf(`
-		SELECT id, tmdb_id, title, release_date, my_rating, my_overview, my_date_watched, created_at
+		SELECT id, tmdb_id, title, release_date, my_rating, my_overview, my_date_watched, created_at, actor_ids
 		FROM watched_movies
 		ORDER BY %s %s NULLS LAST
 		LIMIT $1 OFFSET $2`, col, ord)
@@ -143,7 +143,7 @@ func (r *pgxWatchEntryRepository) ListAll(ctx context.Context, limit, offset int
 
 func (r *pgxWatchEntryRepository) FindByID(ctx context.Context, id uuid.UUID) (*models.WatchedMovie, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, tmdb_id, title, release_date, my_rating, my_overview, my_date_watched, created_at
+		SELECT id, tmdb_id, title, release_date, my_rating, my_overview, my_date_watched, created_at, actor_ids
 		FROM watched_movies WHERE id = $1`, id)
 	if err != nil {
 		return nil, fmt.Errorf("finding watch entry by id: %w", err)
@@ -154,7 +154,7 @@ func (r *pgxWatchEntryRepository) FindByID(ctx context.Context, id uuid.UUID) (*
 
 func (r *pgxWatchEntryRepository) FindByTmdbID(ctx context.Context, tmdbID int) (*models.WatchedMovie, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, tmdb_id, title, release_date, my_rating, my_overview, my_date_watched, created_at
+		SELECT id, tmdb_id, title, release_date, my_rating, my_overview, my_date_watched, created_at, actor_ids
 		FROM watched_movies WHERE tmdb_id = $1`, tmdbID)
 	if err != nil {
 		return nil, fmt.Errorf("finding watch entry by tmdb id: %w", err)
@@ -174,6 +174,7 @@ func scanWatchedMovie(rows pgx.Rows) (models.WatchedMovie, error) {
 		&m.MyOverview,
 		&m.MyDateWatched,
 		&m.CreatedAt,
+		&m.ActorIDs,
 	)
 	return m, err
 }
@@ -181,7 +182,7 @@ func scanWatchedMovie(rows pgx.Rows) (models.WatchedMovie, error) {
 func scanOptionalWatchedMovie(rows pgx.Rows) (*models.WatchedMovie, error) {
 	if !rows.Next() {
 		return nil, nil
-	}	
+	}
 	m, err := scanWatchedMovie(rows)
 	if err != nil {
 		return nil, err
@@ -193,7 +194,7 @@ func (r *pgxWatchEntryRepository) GetRecommendations(ctx context.Context, watche
 	const recommendationMinRating = 8
 
 	const q = `
-		SELECT id, tmdb_id, title, release_date, my_rating, my_overview, my_date_watched, created_at
+		SELECT id, tmdb_id, title, release_date, my_rating, my_overview, my_date_watched, created_at, actor_ids
 		FROM watched_movies
 		WHERE my_rating > $1
 		AND my_date_watched < $2
