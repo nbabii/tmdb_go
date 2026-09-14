@@ -18,6 +18,7 @@ type WatchedMovie struct {
 	MyDateWatched *time.Time
 	CreatedAt     time.Time
 	Genres        []Genre
+	ActorIDs      []int32
 }
 
 // Date wraps time.Time and marshals to/from "YYYY-MM-DD" JSON strings.
@@ -98,7 +99,7 @@ type WatchEntryListResponse struct {
 }
 
 type RecommendationListResponse struct {
-	Items  []WatchEntryListItem `json:"items"`
+	Items []WatchEntryListItem `json:"items"`
 }
 
 // WatchEntryDetailResponse is the GET /watch-entry response — DB fields merged with TMDB data.
@@ -160,5 +161,5 @@ func (m WatchedMovie) ToListItem() WatchEntryListItem {
 }
 
 type WatchEntryExistsResponse struct {
-	ID            uuid.UUID `json:"id"`
+	ID uuid.UUID `json:"id"`
 }

@@ -19,6 +19,7 @@ type WatchEntryServiceUser interface {
 	BulkCreate(ctx context.Context, items []CreateParams) (CreateResult, error)
 	List(ctx context.Context, p ListParams) (models.WatchEntryListResponse, error)
 	GetRecommendations(ctx context.Context) (models.RecommendationListResponse, error)
+	GetActors(ctx context.Context, tmdbID int) (models.ActorListResponse, error)
 }
 
 type watchEntryStore interface {
@@ -33,6 +34,10 @@ type watchEntryStore interface {
 
 type tmdbDetailer interface {
 	GetMovieDetails(ctx context.Context, movieID int) (*models.TMDBMovieDetails, error)
+}
+
+type actorStore interface {
+	FindByIDs(ctx context.Context, ids []int32) ([]models.Actor, error)
 }
 
 // CreateParams carries caller-supplied fields for one watch entry.
@@ -68,10 +73,11 @@ type Lookup struct {
 type WatchEntryService struct {
 	store    watchEntryStore
 	detailer tmdbDetailer
+	actors   actorStore
 }
 
-func NewWatchEntryService(store watchEntryStore, detailer tmdbDetailer) *WatchEntryService {
-	return &WatchEntryService{store: store, detailer: detailer}
+func NewWatchEntryService(store watchEntryStore, detailer tmdbDetailer, actors actorStore) *WatchEntryService {
+	return &WatchEntryService{store: store, detailer: detailer, actors: actors}
 }
 
 func (s *WatchEntryService) BulkCreate(ctx context.Context, items []CreateParams) (CreateResult, error) {
@@ -211,12 +217,33 @@ func (s *WatchEntryService) ExistsByTmdbID(ctx context.Context, tmdbID int) (*mo
 	return &models.WatchEntryExistsResponse{ID: movie.ID}, nil
 }
 
+func (s *WatchEntryService) GetActors(ctx context.Context, tmdbID int) (models.ActorListResponse, error) {
+	movie, err := s.store.FindByTmdbID(ctx, tmdbID)
+	if err != nil {
+		return models.ActorListResponse{}, fmt.Errorf("finding watch entry: %w", err)
+	}
+	if movie == nil {
+		return models.ActorListResponse{}, ErrNotFound
+	}
+
+	actors, err := s.actors.FindByIDs(ctx, movie.ActorIDs)
+	if err != nil {
+		return models.ActorListResponse{}, fmt.Errorf("finding actors: %w", err)
+	}
+
+	items := make([]models.ActorResponse, len(actors))
+	for i, a := range actors {
+		items[i] = a.ToResponse()
+	}
+	return models.ActorListResponse{Items: items}, nil
+}
+
 func (s *WatchEntryService) GetRecommendations(ctx context.Context) (models.RecommendationListResponse, error) {
 	now := time.Now()
 	oneYearAgo := now.AddDate(-1, 0, 0)
 
 	entries, err := s.store.GetRecommendations(ctx, oneYearAgo, 10, 0)
-	
+
 	if err != nil {
 		return models.RecommendationListResponse{}, fmt.Errorf("getting recommendations: %w", err)
 	}
@@ -227,6 +254,6 @@ func (s *WatchEntryService) GetRecommendations(ctx context.Context) (models.Reco
 	}
 
 	return models.RecommendationListResponse{
-		Items:  items,
+		Items: items,
 	}, nil
 }

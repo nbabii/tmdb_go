@@ -16,17 +16,19 @@ import (
 )
 
 type mockWatchEntriesService struct {
-	createResult services.CreateResult
-	createErr    error
-	listResult   models.WatchEntryListResponse
-	listErr      error
-	existsResult bool
-	existsErr    error
-	existsResponse models.WatchEntryExistsResponse
-	getResult models.WatchEntryDetailResponse
-	getErr    error
+	createResult          services.CreateResult
+	createErr             error
+	listResult            models.WatchEntryListResponse
+	listErr               error
+	existsResult          bool
+	existsErr             error
+	existsResponse        models.WatchEntryExistsResponse
+	getResult             models.WatchEntryDetailResponse
+	getErr                error
 	recommendationsResult models.RecommendationListResponse
 	recommendationsErr    error
+	getActorsResult       models.ActorListResponse
+	getActorsErr          error
 }
 
 func (m *mockWatchEntriesService) BulkCreate(_ context.Context, _ []services.CreateParams) (services.CreateResult, error) {
@@ -43,6 +45,10 @@ func (m *mockWatchEntriesService) ExistsByTmdbID(_ context.Context, _ int) (*mod
 
 func (m *mockWatchEntriesService) Get(_ context.Context, _ services.Lookup) (*models.WatchEntryDetailResponse, error) {
 	return &m.getResult, m.getErr
+}
+
+func (m *mockWatchEntriesService) GetActors(_ context.Context, _ int) (models.ActorListResponse, error) {
+	return m.getActorsResult, m.getActorsErr
 }
 
 func (m *mockWatchEntriesService) GetRecommendations(_ context.Context) (models.RecommendationListResponse, error) {
